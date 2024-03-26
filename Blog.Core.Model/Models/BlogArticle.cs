@@ -1,4 +1,5 @@
-﻿using SqlSugar;
+﻿using Blog.Core.Model.ViewModels;
+using SqlSugar;
 using System;
 using System.Collections.Generic;
 
@@ -15,6 +16,49 @@ namespace Blog.Core.Model.Models
         /// 这里之所以没用RootEntity，是想保持和之前的数据库一致，主键是bID，不是Id
         [SugarColumn(IsNullable = false, IsPrimaryKey = true, IsIdentity = false)]
         public long bID { get; set; }
+
+        /// <summary>
+        /// 節點等級
+        /// </summary>
+        [SugarColumn(IsNullable = true)]
+        public int? bnodeLevel { get; set; }
+
+        /// <summary>
+        /// 推薦等級
+        /// </summary>  /// </summary>
+        [SugarColumn(IsNullable = true)]
+        public int? bstarLevel { get; set; }
+
+        /// <summary>
+        /// 父節點
+        /// </summary>
+        [SugarColumn(IsNullable = true)]
+        public long? bparentId { get; set; }
+       
+        
+        /// <summary>
+        /// 父節點實體
+        /// </summary>
+        [Navigate(NavigateType.OneToOne, nameof(bparentId))]
+        public BlogArticle Father { get; set; }
+
+        /// <summary>
+        /// 相关推荐
+        /// </summary>
+        [SugarColumn(Length = 2000, IsNullable = true)]
+        public string bstarList { get; set; }
+
+        /// <summary>
+        /// 推薦列表實體
+        /// </summary>
+        [Navigate(NavigateType.OneToMany, nameof(bstarList))]
+        public List<BlogArticle> StarList { get; set; }
+
+        /// <summary>
+        /// 展示图
+        /// </summary>
+        [SugarColumn(Length = 256, IsNullable = true)]
+        public string bImageslist { get; set; }
 
         /// <summary>
         /// 创建人
@@ -75,11 +119,16 @@ namespace Blog.Core.Model.Models
         [SugarColumn(IsNullable = true)]
         public bool? IsDeleted { get; set; }
 
-
+        [Navigate(NavigateType.OneToMany, nameof(BlogArticleDisplayImage.ImagePath))]
+        public List<string> imageUrlList { get; set; }
         /// <summary>
         /// 评论
         /// </summary>
         [Navigate(NavigateType.OneToMany, nameof(BlogArticleComment.bID))]
         public List<BlogArticleComment> Comments { get; set; }
+
+        [Navigate(NavigateType.OneToMany, nameof(BlogArticleDisplayImage))]
+        public List<BlogArticleDisplayImage> DisplayImageData { get; set; }
+
     }
 }

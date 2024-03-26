@@ -5,8 +5,11 @@ using Blog.Core.IServices;
 using Blog.Core.Model.Models;
 using Blog.Core.Model.ViewModels;
 using Blog.Core.Services.BASE;
+using SqlSugar;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace Blog.Core.Services
@@ -14,10 +17,39 @@ namespace Blog.Core.Services
     public class BlogArticleServices : BaseServices<BlogArticle>, IBlogArticleServices
     {
         IMapper _mapper;
-        public BlogArticleServices(IMapper mapper)
+        public IBlogArticleDisplayImageServices _imageServices { get; set; }
+        public BlogArticleServices(IMapper mapper, IBlogArticleDisplayImageServices imageServices)
         {
             this._mapper = mapper;
+            _imageServices = imageServices;
         }
+
+
+        /// <summary>
+        /// 实体模型导航属性获取值
+        /// </summary>
+        /// <param name=""></param>
+        /// <returns></returns>
+        public async Task<BlogArticle> NavData(BlogArticle blogArticle) {
+            ///父节点
+            blogArticle.Father = (await base.Query(a => a.bID == blogArticle.bparentId)).FirstOrDefault();
+
+            ///推荐列表
+            if (!string.IsNullOrEmpty(blogArticle.bstarList))
+            {
+                List<long> starListIds = blogArticle.bstarList.Split(',').Select(long.Parse).ToList();
+                blogArticle.StarList = (await base.Query(a => starListIds.Contains(a.bID)));
+            }
+
+            ///图片
+            if (!string.IsNullOrEmpty(blogArticle.bImageslist))
+            {
+                blogArticle.DisplayImageData = await _imageServices.Query(s => s.BlogArticleId == blogArticle.bID);
+            }
+
+            return blogArticle;
+        }
+
         /// <summary>
         /// 获取视图博客详情信息
         /// </summary>
@@ -25,25 +57,20 @@ namespace Blog.Core.Services
         /// <returns></returns>
         public async Task<BlogViewModels> GetBlogDetails(long id)
         {
-            // 此处想获取上一条下一条数据，因此将全部数据list出来，有好的想法请提出
-            //var bloglist = await base.Query(a => a.IsDeleted==false, a => a.bID);
-            var blogArticle = (await base.Query(a => a.bID == id && a.bcategory == "技术博文")).FirstOrDefault();
-
+            var blogArticle = (await base.Query(a => a.bID == id)).FirstOrDefault();
+            blogArticle = await NavData(blogArticle);
             BlogViewModels models = null;
 
             if (blogArticle != null)
             {
                 models = _mapper.Map<BlogViewModels>(blogArticle);
-
-                //要取下一篇和上一篇，以当前id开始，按id排序后top(2)，而不用取出所有记录
-                //这样在记录很多的时候也不会有多大影响
-                var nextBlogs = await base.Query(a => a.bID >= id && a.IsDeleted == false && a.bcategory == "技术博文", 2, "bID");
+                var nextBlogs = await base.Query(a => a.bID >= id && a.IsDeleted == false && a.bcategory == blogArticle.bcategory, 2, "bID");
                 if (nextBlogs.Count == 2)
                 {
                     models.next = nextBlogs[1].btitle;
                     models.nextID = nextBlogs[1].bID;
                 }
-                var prevBlogs = await base.Query(a => a.bID <= id && a.IsDeleted == false && a.bcategory == "技术博文", 2, "bID desc");
+                var prevBlogs = await base.Query(a => a.bID <= id && a.IsDeleted == false && a.bcategory == blogArticle.bcategory, 2, "bID desc");
                 if (prevBlogs.Count == 2)
                 {
                     models.previous = prevBlogs[1].btitle;
@@ -58,6 +85,20 @@ namespace Blog.Core.Services
 
         }
 
+        /// <summary>
+        /// 根据id导航属性赋值
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public async Task<BlogArticle> GetBlogId(long id)
+        {
+            var blogArticle = (await base.Query(a => a.bID == id)).FirstOrDefault();
+            blogArticle = await NavData(blogArticle);
+            return blogArticle;
+        }
+
+
+
 
         /// <summary>
         /// 获取博客列表
@@ -67,9 +108,28 @@ namespace Blog.Core.Services
         public async Task<List<BlogArticle>> GetBlogs()
         {
             var bloglist = await base.Query(a => a.bID > 0, a => a.bID);
-
             return bloglist;
 
+        }
+
+        public async Task<List<BlogArticle>> ListNavData(List<BlogArticle> blogArticlelist)
+        {
+            foreach (var blogArticle in blogArticlelist)
+            {
+                blogArticle.Father = (await base.Query(a => a.bID == blogArticle.bparentId)).FirstOrDefault();
+                ///推荐列表
+                if (!string.IsNullOrEmpty(blogArticle.bstarList))
+                {
+                    List<long> starListIds = blogArticle.bstarList.Split(',').Select(long.Parse).ToList();
+                    blogArticle.StarList = (await base.Query(a => starListIds.Contains(a.bID)));
+                }
+                ///图片
+                if (!string.IsNullOrEmpty(blogArticle.bImageslist))
+                {
+                    blogArticle.DisplayImageData = await _imageServices.Query(s => s.BlogArticleId == blogArticle.bID);
+                }
+            }
+            return blogArticlelist;
         }
     }
 }

@@ -9,7 +9,7 @@
             博客管理
             </summary>
         </member>
-        <member name="M:Blog.Core.Controllers.BlogController.#ctor(Microsoft.Extensions.Logging.ILogger{Blog.Core.Controllers.BlogController})">
+        <member name="M:Blog.Core.Controllers.BlogController.#ctor(Microsoft.Extensions.Logging.ILogger{Blog.Core.Controllers.BlogController},Blog.Core.IServices.IBlogArticleDisplayImageServices)">
             <summary>
             构造函数
             </summary>
@@ -79,6 +79,34 @@
             apache jemeter 压力测试
             更新接口
             </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Blog.Core.Controllers.BlogController.GetMainStar(System.String)">
+            <summary>
+            獲取首頁推薦
+            </summary>
+            <param name="blogArticle"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Blog.Core.Controllers.BlogController.GetSubBlog(Blog.Core.Model.Models.BlogArticle)">
+            <summary>
+            獲取所有子節點
+            </summary>
+            <param name="blogArticle"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Blog.Core.Controllers.BlogController.GetAllBlog(Blog.Core.Model.Models.BlogArticle)">
+            <summary>
+            獲取所有一级节点
+            </summary>
+            <param name="blogArticle"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Blog.Core.Controllers.BlogController.DelBlogImages(System.Int64)">
+            <summary>
+            删除图片
+            </summary>
+            <param name="blogArticle"></param>
             <returns></returns>
         </member>
         <member name="M:Blog.Core.Controllers.DbFirstController.#ctor(SqlSugar.ISqlSugarClient,Microsoft.AspNetCore.Hosting.IWebHostEnvironment)">
@@ -1520,29 +1548,6 @@
             </summary>
             <returns></returns>
         </member>
-        <member name="T:Blog.Core.SwaggerHelper.CustomRouteAttribute">
-            <summary>
-            自定义路由 /api/{version}/[controler]/[action]
-            </summary>
-        </member>
-        <member name="P:Blog.Core.SwaggerHelper.CustomRouteAttribute.GroupName">
-            <summary>
-            分组名称,是来实现接口 IApiDescriptionGroupNameProvider
-            </summary>
-        </member>
-        <member name="M:Blog.Core.SwaggerHelper.CustomRouteAttribute.#ctor(System.String)">
-            <summary>
-            自定义路由构造函数，继承基类路由
-            </summary>
-            <param name="actionName"></param>
-        </member>
-        <member name="M:Blog.Core.SwaggerHelper.CustomRouteAttribute.#ctor(Blog.Core.Extensions.CustomApiVersion.ApiVersions,System.String)">
-            <summary>
-            自定义版本+路由构造函数，继承基类路由
-            </summary>
-            <param name="actionName"></param>
-            <param name="version"></param>
-        </member>
         <member name="T:Blog.Core.Filter.GlobalRouteAuthorizeConvention">
             <summary>
             Summary:全局路由权限公约
@@ -1583,6 +1588,29 @@
             <summary>
             全局路由前缀公约
             </summary>
+        </member>
+        <member name="T:Blog.Core.SwaggerHelper.CustomRouteAttribute">
+            <summary>
+            自定义路由 /api/{version}/[controler]/[action]
+            </summary>
+        </member>
+        <member name="P:Blog.Core.SwaggerHelper.CustomRouteAttribute.GroupName">
+            <summary>
+            分组名称,是来实现接口 IApiDescriptionGroupNameProvider
+            </summary>
+        </member>
+        <member name="M:Blog.Core.SwaggerHelper.CustomRouteAttribute.#ctor(System.String)">
+            <summary>
+            自定义路由构造函数，继承基类路由
+            </summary>
+            <param name="actionName"></param>
+        </member>
+        <member name="M:Blog.Core.SwaggerHelper.CustomRouteAttribute.#ctor(Blog.Core.Extensions.CustomApiVersion.ApiVersions,System.String)">
+            <summary>
+            自定义版本+路由构造函数，继承基类路由
+            </summary>
+            <param name="actionName"></param>
+            <param name="version"></param>
         </member>
     </members>
 </doc>

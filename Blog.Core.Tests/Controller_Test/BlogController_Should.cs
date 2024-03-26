@@ -14,6 +14,7 @@ namespace Blog.Core.Tests
 {
     public class BlogController_Should
     {
+        Mock<IBlogArticleDisplayImageServices> mockBlogImgSev = new Mock<IBlogArticleDisplayImageServices>();
         Mock<IBlogArticleServices> mockBlogSev = new Mock<IBlogArticleServices>();
         Mock<ILogger<BlogController>> mockLogger = new Mock<ILogger<BlogController>>();
         BlogController blogController;
@@ -29,7 +30,7 @@ namespace Blog.Core.Tests
 
             var container = dI_Test.DICollections();
             blogArticleServices = container.Resolve<IBlogArticleServices>();
-            blogController = new BlogController(mockLogger.Object);
+            blogController = new BlogController(mockLogger.Object, mockBlogImgSev.Object);
             blogController._blogArticleServices = blogArticleServices;
         }
 

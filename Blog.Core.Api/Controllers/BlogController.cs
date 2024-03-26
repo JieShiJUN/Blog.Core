@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using System.Text;
 using System.Text.RegularExpressions;
 using Blog.Core.Common.Helper;
 using Blog.Core.IServices;
@@ -8,8 +9,13 @@ using Blog.Core.Model.ViewModels;
 using Blog.Core.SwaggerHelper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using OfficeOpenXml.FormulaParsing.Excel.Functions.Text;
 using Serilog;
+using SkyWalking.NetworkProtocol.V3;
+using SqlSugar;
 using StackExchange.Profiling;
+using ZstdSharp.Unsafe;
 using static Blog.Core.Extensions.CustomApiVersion;
 
 namespace Blog.Core.Controllers
@@ -22,6 +28,7 @@ namespace Blog.Core.Controllers
     public class BlogController : BaseApiController
     {
         public IBlogArticleServices _blogArticleServices { get; set; }
+        public IBlogArticleDisplayImageServices _imageServices { get; set; }
         private readonly ILogger<BlogController> _logger;
 
         /// <summary>
@@ -29,9 +36,10 @@ namespace Blog.Core.Controllers
         /// </summary>
         /// <param name="logger"></param>
         /// 
-        public BlogController(ILogger<BlogController> logger)
+        public BlogController(ILogger<BlogController> logger, IBlogArticleDisplayImageServices imageServices)
         {
             _logger = logger;
+            _imageServices = imageServices;
         }
 
 
@@ -52,27 +60,32 @@ namespace Blog.Core.Controllers
                 key = "";
             }
 
-            Expression<Func<BlogArticle, bool>> whereExpression = a => (a.bcategory == bcategory && a.IsDeleted == false) && ((a.btitle != null && a.btitle.Contains(key)) || (a.bcontent != null && a.bcontent.Contains(key)));
+            Expression<Func<BlogArticle, bool>> whereExpression = a => (a.bcategory == bcategory && a.IsDeleted == false) && ((a.btitle != null && a.btitle.Contains(key)) || (a.bID != null && a.bID.ToString().Contains(key) || (a.bcontent != null && a.bcontent.Contains(key))));
 
+            var res = new PageModel<BlogArticle>();
             var pageModelBlog = await _blogArticleServices.QueryPage(whereExpression, page, intPageSize, " bID desc ");
 
             using (MiniProfiler.Current.Step("获取成功后，开始处理最终数据"))
             {
+                var list = new List<BlogArticle>();
                 foreach (var item in pageModelBlog.data)
                 {
                     if (!string.IsNullOrEmpty(item.bcontent))
                     {
-                        item.bRemark = (HtmlHelper.ReplaceHtmlTag(item.bcontent)).Length >= 200 ? (HtmlHelper.ReplaceHtmlTag(item.bcontent)).Substring(0, 200) : (HtmlHelper.ReplaceHtmlTag(item.bcontent));
+                        var blog =await _blogArticleServices.NavData(item);
+                        blog.bRemark = (HtmlHelper.ReplaceHtmlTag(blog.bcontent)).Length >= 200 ? (HtmlHelper.ReplaceHtmlTag(blog.bcontent)).Substring(0, 200) : (HtmlHelper.ReplaceHtmlTag(blog.bcontent));
                         int totalLength = 500;
-                        if (item.bcontent.Length > totalLength)
+                        if (blog.bcontent.Length > totalLength)
                         {
-                            item.bcontent = item.bcontent.Substring(0, totalLength);
+                            blog.bcontent = blog.bcontent.Substring(0, totalLength);
                         }
+                        list.Add(blog);
                     }
                 }
+                res.data = list;
             }
 
-            return SuccessPage(pageModelBlog);
+            return SuccessPage(res);
         }
 
 
@@ -83,7 +96,7 @@ namespace Blog.Core.Controllers
         /// <returns></returns>
         [HttpGet("{id}")]
         //[Authorize(Policy = "Scope_BlogModule_Policy")]
-        [Authorize]
+      /*  [Authorize]*/
         public async Task<MessageModel<BlogViewModels>> Get(long id)
         {
             return Success(await _blogArticleServices.GetBlogDetails(id));
@@ -99,8 +112,6 @@ namespace Blog.Core.Controllers
         [Route("DetailNuxtNoPer")]
         public async Task<MessageModel<BlogViewModels>> DetailNuxtNoPer(long id)
         {
-            _logger.LogInformation("xxxxxxxxxxxxxxxxxxx");
-            Log.Information("yyyyyyyyyyyyyyyyy");
             return Success(await _blogArticleServices.GetBlogDetails(id));
         }
 
@@ -164,24 +175,36 @@ namespace Blog.Core.Controllers
             return Success<string>("我是第二版的博客信息");
         }
 
-        /// <summary>
+          /// <summary>
         /// 添加博客【无权限】
         /// </summary>
         /// <param name="blogArticle"></param>
         /// <returns></returns>
         [HttpPost]
         //[Authorize(Policy = "Scope_BlogModule_Policy")]
-        [Authorize]
+       /* [Authorize]*/
         public async Task<MessageModel<string>> Post([FromBody] BlogArticle blogArticle)
         {
             if (blogArticle.btitle.Length > 5 && blogArticle.bcontent.Length > 50)
             {
-
+               
                 blogArticle.bCreateTime = DateTime.Now;
                 blogArticle.bUpdateTime = DateTime.Now;
                 blogArticle.IsDeleted = false;
-                blogArticle.bcategory = "技术博文";
                 var id = (await _blogArticleServices.Add(blogArticle));
+                var model = await _blogArticleServices.QueryById(id);
+                var images = await _imageServices.Upload(model.bID, model.imageUrlList);
+                StringBuilder builder = new StringBuilder();
+                foreach (var item in images)
+                {
+                    builder.Append(item.Id).Append(",");
+                }
+                if (builder.Length > 0)
+                {
+                    builder.Length--; // 删除最后一个字符（即逗号）
+                }
+                model.bImageslist=builder.ToString();
+                await _blogArticleServices.Update(model);
                 return id > 0 ? Success<string>(id.ObjToString()) : Failed("添加失败");
             }
             else
@@ -189,6 +212,43 @@ namespace Blog.Core.Controllers
                 return Failed("文章标题不能少于5个字符，内容不能少于50个字符！");
             }
         }
+
+
+
+  /*      /// <summary>
+        /// 獲取首頁推薦
+        /// </summary>
+        /// <param name="blogArticle"></param>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("GetMainStar")]
+        public async Task<MessageModel<BlogViewModels>> GetMainStar(string bcategory)
+        {
+            if (!string.IsNullOrWhiteSpace(bcategory))
+            {
+
+                Expression<Func<BlogArticle, bool>> whereExpression = a => (a.bcategory == bcategory && a.IsDeleted == false) && ((a.bstarLevel != null && a.bstarLevel>=0));
+
+                var pageModelBlog = await _blogArticleServices.QueryPage(whereExpression, 1, 10, " bstarLevel desc ");
+
+                using (MiniProfiler.Current.Step("获取成功后，开始处理最终数据"))
+                {
+                    foreach (var item in pageModelBlog.data)
+                    {
+                        if (!string.IsNullOrEmpty(item.bcontent))
+                        {
+                            item.bRemark = (HtmlHelper.ReplaceHtmlTag(item.bcontent)).Length >= 200 ? (HtmlHelper.ReplaceHtmlTag(item.bcontent)).Substring(0, 200) : (HtmlHelper.ReplaceHtmlTag(item.bcontent));
+                            int totalLength = 500;
+                            if (item.bcontent.Length > totalLength)
+                            {
+                                item.bcontent = item.bcontent.Substring(0, totalLength);
+                            }
+                        }
+                    }
+                }
+                 return SuccessPage(pageModelBlog);
+            }
+        }*/
 
 
         /// <summary>
@@ -229,6 +289,25 @@ namespace Blog.Core.Controllers
                     model.bsubmitter = BlogArticle.bsubmitter;
                     model.bcontent = BlogArticle.bcontent;
                     model.btraffic = BlogArticle.btraffic;
+                    model.bnodeLevel = BlogArticle.bnodeLevel;
+                    model.bstarLevel = BlogArticle.bstarLevel;
+                    model.bstarList = BlogArticle.bstarList;
+                    model.bparentId = BlogArticle.bparentId;
+                    var images = await _imageServices.Upload(model.bID, BlogArticle.imageUrlList);
+                    if (images!=null)
+                    {
+                        StringBuilder builder = new StringBuilder();
+                        foreach (var item in images)
+                        {
+                            builder.Append(item.Id).Append(",");
+                        }
+                        if (builder.Length > 0)
+                        {
+                            builder.Length--; // 删除最后一个字符（即逗号）
+                        }
+                        model.bImageslist = builder.ToString();
+                    }
+                  
 
                     if (await _blogArticleServices.Update(model))
                     {
@@ -274,5 +353,96 @@ namespace Blog.Core.Controllers
         {
             return Success(await _blogArticleServices.Update(new { bsubmitter = $"laozhang{DateTime.Now.Millisecond}", bID = 1 }), "更新成功");
         }
+
+
+
+        #region 新增
+
+        /// <summary>
+        /// 獲取首頁推薦
+        /// </summary>
+        /// <param name="blogArticle"></param>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("GetMainStar")]
+        public async Task<MessageModel<List<BlogArticle>>> GetMainStar(string bcategory)
+        {
+            var res = new List<BlogArticle>();
+            if (!string.IsNullOrWhiteSpace(bcategory))
+            {
+
+                var blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory && d.bstarLevel>=0 && d.IsDeleted == false, d => d.bstarLevel, false);
+                res = await _blogArticleServices.ListNavData(blogs);
+            }
+            return Success(res);
+        }
+
+        /// <summary>
+        /// 獲取所有子節點
+        /// </summary>
+        /// <param name="blogArticle"></param>
+        /// <returns></returns>
+        [HttpPost]
+        [Route("GetSubBlog")]
+        public async Task<MessageModel<List<BlogArticle>>> GetSubBlog([FromBody] BlogArticle blogArticle)
+        {
+            var res = new List<BlogArticle>();
+            if (blogArticle != null && blogArticle.bID > 0)
+            {
+                var blogs = await _blogArticleServices.Query(d => d.bcategory == blogArticle.bcategory && d.bparentId == blogArticle.bID && d.IsDeleted == false, d => d.bID, false);
+                res = await _blogArticleServices.ListNavData(blogs);
+            }
+            return Success(res);
+        }
+
+
+        /// <summary>
+        /// 獲取所有一级节点
+        /// </summary>
+        /// <param name="blogArticle"></param>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("GetSubBlog")]
+        public async Task<MessageModel<List<BlogArticle>>> GetAllBlog([FromBody] BlogArticle blogArticle)
+        {
+            var blogs = new List<BlogArticle>();
+            if (blogArticle!=null)
+            {
+                 blogs = await _blogArticleServices.Query(d => d.bcategory == blogArticle.bcategory && d.bnodeLevel == 1 && d.IsDeleted == false, d => d.bID, false);
+            }
+             blogs = await _blogArticleServices.Query(d=>d.bnodeLevel==1 && d.IsDeleted == false, d => d.bID, false);
+            
+            return Success(blogs);
+        }
+
+
+        /// <summary>
+        /// 删除图片
+        /// </summary>
+        /// <param name="blogArticle"></param>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("DelBlogImages")]
+        public async Task<bool> DelBlogImages(long id)
+        {
+            return await _imageServices.DelLoad(id);
+        }
+        
+
+
+
+
+
+        #endregion
+
+
+
+
+
+
+
+
+
+
     }
 }

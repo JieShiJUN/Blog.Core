@@ -2,6 +2,7 @@
 using Blog.Core.Model.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Driver.Linq;
 
 namespace Blog.Core.Controllers
 {
@@ -10,7 +11,7 @@ namespace Blog.Core.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+/*    [Authorize]*/
     public class ImgController : BaseApiController
     {
         
@@ -68,11 +69,12 @@ namespace Blog.Core.Controllers
             {
                 Directory.CreateDirectory(folderpath);
             }
+            string filename = "";
             foreach (var file in allowedFile)
             {
                 string strpath = Path.Combine(foldername, DateTime.Now.ToString("MMddHHmmss") + Path.GetFileName(file.FileName));
                 var path = Path.Combine(_env.WebRootPath, strpath);
-
+                filename += strpath+',';
                 using (var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite))
                 {
                     await file.CopyToAsync(stream);
@@ -86,8 +88,8 @@ namespace Blog.Core.Controllers
                 var infoMsg = $"{string.Join('、', excludeFiles.Select(c => c.FileName))} 图片格式错误";
                 return Success<string>(null, infoMsg);
             }
-
-            return Success<string>(null, "上传成功");
+            
+            return Success<string>(filename, "上传成功");
 
         }
 
