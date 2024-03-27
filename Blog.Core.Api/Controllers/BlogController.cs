@@ -41,6 +41,7 @@ namespace Blog.Core.Controllers
             _logger = logger;
             _imageServices = imageServices;
         }
+        // 获取所有blog的拓展方法
 
 
         /// <summary>
@@ -52,42 +53,34 @@ namespace Blog.Core.Controllers
         /// <param name="key"></param>
         /// <returns></returns>
         [HttpGet]
-        public async Task<MessageModel<PageModel<BlogArticle>>> Get(int id, int page = 1, string bcategory = "技术博文", string key = "")
+        public async Task<MessageModel<PageModel<BlogArticle>>> Get(int id, int page = 1,int intPageSize=10,int level=-1, string bcategory = "", string key = "")
         {
-            int intPageSize = 6;
             if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(key))
             {
                 key = "";
             }
-
-            Expression<Func<BlogArticle, bool>> whereExpression = a => (a.bcategory == bcategory && a.IsDeleted == false) && ((a.btitle != null && a.btitle.Contains(key)) || (a.bID != null && a.bID.ToString().Contains(key) || (a.bcontent != null && a.bcontent.Contains(key))));
-
+          
+            Expression<Func<BlogArticle, bool>> whereExpression = a => (a.bcategory.Contains(bcategory) && a.IsDeleted == false) && ((a.btitle != null && a.btitle.Contains(key)) || (a.bID != null && a.bID.ToString().Contains(key) || (a.bcontent != null && a.bcontent.Contains(key))));
+            if (level != -1)
+            {
+                whereExpression = a => (a.bcategory.Contains(bcategory) && a.IsDeleted == false) && ((a.btitle != null && a.btitle.Contains(key)) || (a.bID != null && a.bID.ToString().Contains(key)||a.bnodeLevel==level || (a.bcontent != null && a.bcontent.Contains(key))));
+            }
             var res = new PageModel<BlogArticle>();
             var pageModelBlog = await _blogArticleServices.QueryPage(whereExpression, page, intPageSize, " bID desc ");
-
             using (MiniProfiler.Current.Step("获取成功后，开始处理最终数据"))
             {
                 var list = new List<BlogArticle>();
                 foreach (var item in pageModelBlog.data)
                 {
-                    if (!string.IsNullOrEmpty(item.bcontent))
-                    {
                         var blog =await _blogArticleServices.NavData(item);
-                        blog.bRemark = (HtmlHelper.ReplaceHtmlTag(blog.bcontent)).Length >= 200 ? (HtmlHelper.ReplaceHtmlTag(blog.bcontent)).Substring(0, 200) : (HtmlHelper.ReplaceHtmlTag(blog.bcontent));
-                        int totalLength = 500;
-                        if (blog.bcontent.Length > totalLength)
-                        {
-                            blog.bcontent = blog.bcontent.Substring(0, totalLength);
-                        }
                         list.Add(blog);
-                    }
                 }
                 res.data = list;
+                res = new PageModel<BlogArticle>(page,pageModelBlog.dataCount,intPageSize,res.data);
             }
-
             return SuccessPage(res);
         }
-
+            
 
         /// <summary>
         /// 获取博客详情
@@ -134,6 +127,25 @@ namespace Blog.Core.Controllers
 
             return Ok();
         }
+
+
+        /// <summary>
+        /// 展示图
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("GetBlogHomeMain")]
+        public async Task<MessageModel<List<BlogArticleDisplayImage>>> GetBlogHomeMain()
+        {
+            var blogs = await _blogArticleServices.Query(d => d.btitle == "展示图" && d.IsDeleted == false, d => d.bID, false);
+            if (blogs.Count>0)
+            {
+              var res =  await _blogArticleServices.NavData(blogs[0]);
+                return Success(res.DisplayImageData);
+            }
+                return null;
+        }
+
 
         [HttpGet]
         [Route("GetBlogsByTypesForMVP")]
@@ -185,15 +197,19 @@ namespace Blog.Core.Controllers
        /* [Authorize]*/
         public async Task<MessageModel<string>> Post([FromBody] BlogArticle blogArticle)
         {
-            if (blogArticle.btitle.Length > 5 && blogArticle.bcontent.Length > 50)
+            if (blogArticle.btitle.Length > 0)
             {
                
                 blogArticle.bCreateTime = DateTime.Now;
                 blogArticle.bUpdateTime = DateTime.Now;
                 blogArticle.IsDeleted = false;
+                if (blogArticle.bnodeLevel==1)
+                {
+                    blogArticle.bcategory = blogArticle.btitle;
+                }
                 var id = (await _blogArticleServices.Add(blogArticle));
                 var model = await _blogArticleServices.QueryById(id);
-                var images = await _imageServices.Upload(model.bID, model.imageUrlList);
+                var images = await _imageServices.Upload(model.bID, blogArticle.imageUrlList);
                 StringBuilder builder = new StringBuilder();
                 foreach (var item in images)
                 {
@@ -209,7 +225,7 @@ namespace Blog.Core.Controllers
             }
             else
             {
-                return Failed("文章标题不能少于5个字符，内容不能少于50个字符！");
+                return Failed("文章标题不能为空！");
             }
         }
 
@@ -278,6 +294,7 @@ namespace Blog.Core.Controllers
         [Authorize(Permissions.Name)]
         public async Task<MessageModel<string>> Put([FromBody] BlogArticle BlogArticle)
         {
+            /*return Failed("更新失败");*/
             if (BlogArticle != null && BlogArticle.bID > 0)
             {
                 var model = await _blogArticleServices.QueryById(BlogArticle.bID);
@@ -378,18 +395,29 @@ namespace Blog.Core.Controllers
         }
 
         /// <summary>
-        /// 獲取所有子節點
+        /// 获取分类下的节点
         /// </summary>
-        /// <param name="blogArticle"></param>
+        /// <param name="category">传入则查询该分类、不传获取所有二级节点</param>
+        /// <param name="level"></param>
         /// <returns></returns>
-        [HttpPost]
+        [HttpGet]
         [Route("GetSubBlog")]
-        public async Task<MessageModel<List<BlogArticle>>> GetSubBlog([FromBody] BlogArticle blogArticle)
+        public async Task<MessageModel<List<BlogArticle>>> GetSubBlog(string category,int level=0)
         {
             var res = new List<BlogArticle>();
-            if (blogArticle != null && blogArticle.bID > 0)
+            if (!string.IsNullOrEmpty(category))
             {
-                var blogs = await _blogArticleServices.Query(d => d.bcategory == blogArticle.bcategory && d.bparentId == blogArticle.bID && d.IsDeleted == false, d => d.bID, false);
+                var blogs = await _blogArticleServices.Query(d => d.bcategory == category && d.IsDeleted == false, d => d.bCreateTime, true);
+                if (level!=0)
+                {
+                    blogs = blogs.Where(s=>s.bnodeLevel==level).ToList(); 
+                }       
+                res = await _blogArticleServices.ListNavData(blogs);
+            }
+            else
+            {   
+                level = 2;
+                var blogs = await _blogArticleServices.Query(d =>d.IsDeleted == false&& d.bnodeLevel == level, d => d.bCreateTime, true);
                 res = await _blogArticleServices.ListNavData(blogs);
             }
             return Success(res);
@@ -397,21 +425,29 @@ namespace Blog.Core.Controllers
 
 
         /// <summary>
-        /// 獲取所有一级节点
+        /// 獲取所有一级节点 或者获取所有同类别的节点 或者全部节点
         /// </summary>
         /// <param name="blogArticle"></param>
         /// <returns></returns>
         [HttpGet]
-        [Route("GetSubBlog")]
-        public async Task<MessageModel<List<BlogArticle>>> GetAllBlog([FromBody] BlogArticle blogArticle)
+        [Route("GetBlogNode")]
+        public async Task<MessageModel<List<BlogArticle>>> GetBlogNode(string bcategory)
         {
             var blogs = new List<BlogArticle>();
-            if (blogArticle!=null)
+            if (!string.IsNullOrEmpty(bcategory))
             {
-                 blogs = await _blogArticleServices.Query(d => d.bcategory == blogArticle.bcategory && d.bnodeLevel == 1 && d.IsDeleted == false, d => d.bID, false);
+                 blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory /*&& d.bnodeLevel == 2 */&& d.IsDeleted == false, d => d.bCreateTime, true);
+                if (bcategory=="ALL")
+                {
+                    blogs = await _blogArticleServices.Query(d =>d.IsDeleted == false, d => d.bCreateTime, true);
+                    blogs = await _blogArticleServices.ListNavData(blogs);
+                }
             }
-             blogs = await _blogArticleServices.Query(d=>d.bnodeLevel==1 && d.IsDeleted == false, d => d.bID, false);
-            
+            else
+            {
+                blogs = await _blogArticleServices.Query(d => d.bnodeLevel == 1 && d.IsDeleted == false, d => d.bCreateTime, true);
+                blogs = await _blogArticleServices.ListNavData(blogs);
+            }
             return Success(blogs);
         }
 
@@ -427,14 +463,13 @@ namespace Blog.Core.Controllers
         {
             return await _imageServices.DelLoad(id);
         }
-        
+
 
 
 
 
 
         #endregion
-
 
 
 

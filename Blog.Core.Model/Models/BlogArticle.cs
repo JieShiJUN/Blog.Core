@@ -84,7 +84,7 @@ namespace Blog.Core.Model.Models
         /// <summary>
         /// 内容
         /// </summary>
-        [SugarColumn(Length = 2000, IsNullable = true)]
+        [SugarColumn(Length = int.MaxValue, IsNullable = true)]
         public string bcontent { get; set; }
 
         /// <summary>

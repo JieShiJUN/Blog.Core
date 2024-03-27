@@ -16,7 +16,7 @@
             <param name="logger"></param>
             
         </member>
-        <member name="M:Blog.Core.Controllers.BlogController.Get(System.Int32,System.Int32,System.String,System.String)">
+        <member name="M:Blog.Core.Controllers.BlogController.Get(System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String)">
             <summary>
             获取博客列表【无权限】
             </summary>
@@ -38,6 +38,12 @@
             获取详情【无权限】
             </summary>
             <param name="id"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Blog.Core.Controllers.BlogController.GetBlogHomeMain">
+            <summary>
+            展示图
+            </summary>
             <returns></returns>
         </member>
         <member name="M:Blog.Core.Controllers.BlogController.V2_Blogtest">
@@ -88,16 +94,17 @@
             <param name="blogArticle"></param>
             <returns></returns>
         </member>
-        <member name="M:Blog.Core.Controllers.BlogController.GetSubBlog(Blog.Core.Model.Models.BlogArticle)">
+        <member name="M:Blog.Core.Controllers.BlogController.GetSubBlog(System.String,System.Int32)">
             <summary>
-            獲取所有子節點
+            获取分类下的节点
             </summary>
-            <param name="blogArticle"></param>
+            <param name="category">传入则查询该分类、不传获取所有二级节点</param>
+            <param name="level"></param>
             <returns></returns>
         </member>
-        <member name="M:Blog.Core.Controllers.BlogController.GetAllBlog(Blog.Core.Model.Models.BlogArticle)">
+        <member name="M:Blog.Core.Controllers.BlogController.GetBlogNode(System.String)">
             <summary>
-            獲取所有一级节点
+            獲取所有一级节点 或者获取所有同类别的节点 或者全部节点
             </summary>
             <param name="blogArticle"></param>
             <returns></returns>

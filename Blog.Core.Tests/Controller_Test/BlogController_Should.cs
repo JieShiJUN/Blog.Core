@@ -45,7 +45,7 @@ namespace Blog.Core.Tests
         [Fact]
         public async void Get_Blog_Page_Test()
         {
-            MessageModel<PageModel<BlogArticle>> blogs = await blogController.Get(1, 1, "技术博文", "");
+            MessageModel<PageModel<BlogArticle>> blogs = await blogController.Get(1, 1);
             Assert.NotNull(blogs);
             Assert.NotNull(blogs.response);
             Assert.True(blogs.response.dataCount >= 0);

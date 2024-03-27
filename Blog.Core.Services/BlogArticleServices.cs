@@ -40,13 +40,7 @@ namespace Blog.Core.Services
                 List<long> starListIds = blogArticle.bstarList.Split(',').Select(long.Parse).ToList();
                 blogArticle.StarList = (await base.Query(a => starListIds.Contains(a.bID)));
             }
-
-            ///图片
-            if (!string.IsNullOrEmpty(blogArticle.bImageslist))
-            {
                 blogArticle.DisplayImageData = await _imageServices.Query(s => s.BlogArticleId == blogArticle.bID);
-            }
-
             return blogArticle;
         }
 
@@ -63,24 +57,11 @@ namespace Blog.Core.Services
 
             if (blogArticle != null)
             {
+                blogArticle.StarList = await ListNavData(blogArticle.StarList);
                 models = _mapper.Map<BlogViewModels>(blogArticle);
-                var nextBlogs = await base.Query(a => a.bID >= id && a.IsDeleted == false && a.bcategory == blogArticle.bcategory, 2, "bID");
-                if (nextBlogs.Count == 2)
-                {
-                    models.next = nextBlogs[1].btitle;
-                    models.nextID = nextBlogs[1].bID;
-                }
-                var prevBlogs = await base.Query(a => a.bID <= id && a.IsDeleted == false && a.bcategory == blogArticle.bcategory, 2, "bID desc");
-                if (prevBlogs.Count == 2)
-                {
-                    models.previous = prevBlogs[1].btitle;
-                    models.previousID = prevBlogs[1].bID;
-                }
-
                 blogArticle.btraffic += 1;
                 await base.Update(blogArticle, new List<string> { "btraffic" });
             }
-
             return models;
 
         }
@@ -114,22 +95,14 @@ namespace Blog.Core.Services
 
         public async Task<List<BlogArticle>> ListNavData(List<BlogArticle> blogArticlelist)
         {
+            var res = new List<BlogArticle>();
+            if (blogArticlelist == null) return null;
             foreach (var blogArticle in blogArticlelist)
             {
-                blogArticle.Father = (await base.Query(a => a.bID == blogArticle.bparentId)).FirstOrDefault();
-                ///推荐列表
-                if (!string.IsNullOrEmpty(blogArticle.bstarList))
-                {
-                    List<long> starListIds = blogArticle.bstarList.Split(',').Select(long.Parse).ToList();
-                    blogArticle.StarList = (await base.Query(a => starListIds.Contains(a.bID)));
-                }
-                ///图片
-                if (!string.IsNullOrEmpty(blogArticle.bImageslist))
-                {
-                    blogArticle.DisplayImageData = await _imageServices.Query(s => s.BlogArticleId == blogArticle.bID);
-                }
+               var data= await NavData(blogArticle);
+                res.Add(data);
             }
-            return blogArticlelist;
+            return res;
         }
     }
 }
