@@ -1,16 +1,10 @@
 ﻿using AutoMapper;
 using Blog.Core.Common;
-using Blog.Core.IRepository.Base;
 using Blog.Core.IServices;
 using Blog.Core.Model.Models;
 using Blog.Core.Model.ViewModels;
 using Blog.Core.Services.BASE;
 using SqlSugar;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 
 namespace Blog.Core.Services
 {
@@ -41,6 +35,11 @@ namespace Blog.Core.Services
                 blogArticle.StarList = (await base.Query(a => starListIds.Contains(a.bID)));
             }
                 blogArticle.DisplayImageData = await _imageServices.Query(s => s.BlogArticleId == blogArticle.bID);
+
+            var Child = (await base.Query(a => a.bparentId == blogArticle.bID));
+            Child= await ListNavData(Child);
+            //子节点
+            blogArticle.Child = Child;
             return blogArticle;
         }
 

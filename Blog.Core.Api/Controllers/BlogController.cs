@@ -1,6 +1,7 @@
 ﻿using System.Linq.Expressions;
 using System.Text;
 using System.Text.RegularExpressions;
+using Blog.Core.Common.Extensions;
 using Blog.Core.Common.Helper;
 using Blog.Core.IServices;
 using Blog.Core.Model;
@@ -53,7 +54,7 @@ namespace Blog.Core.Controllers
         /// <param name="key"></param>
         /// <returns></returns>
         [HttpGet]
-        public async Task<MessageModel<PageModel<BlogArticle>>> Get(int id, int page = 1,int intPageSize=10,int level=-1, string bcategory = "", string key = "")
+        public async Task<MessageModel<PageModel<BlogArticle>>> Get(int id, int page = 1,int intPageSize=10,int level=-1, string bcategory = "", string key = "",int star =0)
         {
             if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(key))
             {
@@ -63,8 +64,13 @@ namespace Blog.Core.Controllers
             Expression<Func<BlogArticle, bool>> whereExpression = a => (a.bcategory.Contains(bcategory) && a.IsDeleted == false) && ((a.btitle != null && a.btitle.Contains(key)) || (a.bID != null && a.bID.ToString().Contains(key) || (a.bcontent != null && a.bcontent.Contains(key))));
             if (level != -1)
             {
-                whereExpression = a => (a.bcategory.Contains(bcategory) && a.IsDeleted == false) && ((a.btitle != null && a.btitle.Contains(key)) || (a.bID != null && a.bID.ToString().Contains(key)||a.bnodeLevel==level || (a.bcontent != null && a.bcontent.Contains(key))));
+                whereExpression = whereExpression.And(a => a.bnodeLevel == level);
             }
+            if (star!=0)
+            {
+                whereExpression = whereExpression.And(a=> a.bstarLevel !=null);
+            }
+           
             var res = new PageModel<BlogArticle>();
             var pageModelBlog = await _blogArticleServices.QueryPage(whereExpression, page, intPageSize, " bID desc ");
             using (MiniProfiler.Current.Step("获取成功后，开始处理最终数据"))
@@ -228,43 +234,6 @@ namespace Blog.Core.Controllers
                 return Failed("文章标题不能为空！");
             }
         }
-
-
-
-  /*      /// <summary>
-        /// 獲取首頁推薦
-        /// </summary>
-        /// <param name="blogArticle"></param>
-        /// <returns></returns>
-        [HttpGet]
-        [Route("GetMainStar")]
-        public async Task<MessageModel<BlogViewModels>> GetMainStar(string bcategory)
-        {
-            if (!string.IsNullOrWhiteSpace(bcategory))
-            {
-
-                Expression<Func<BlogArticle, bool>> whereExpression = a => (a.bcategory == bcategory && a.IsDeleted == false) && ((a.bstarLevel != null && a.bstarLevel>=0));
-
-                var pageModelBlog = await _blogArticleServices.QueryPage(whereExpression, 1, 10, " bstarLevel desc ");
-
-                using (MiniProfiler.Current.Step("获取成功后，开始处理最终数据"))
-                {
-                    foreach (var item in pageModelBlog.data)
-                    {
-                        if (!string.IsNullOrEmpty(item.bcontent))
-                        {
-                            item.bRemark = (HtmlHelper.ReplaceHtmlTag(item.bcontent)).Length >= 200 ? (HtmlHelper.ReplaceHtmlTag(item.bcontent)).Substring(0, 200) : (HtmlHelper.ReplaceHtmlTag(item.bcontent));
-                            int totalLength = 500;
-                            if (item.bcontent.Length > totalLength)
-                            {
-                                item.bcontent = item.bcontent.Substring(0, totalLength);
-                            }
-                        }
-                    }
-                }
-                 return SuccessPage(pageModelBlog);
-            }
-        }*/
 
 
         /// <summary>
@@ -436,7 +405,7 @@ namespace Blog.Core.Controllers
             var blogs = new List<BlogArticle>();
             if (!string.IsNullOrEmpty(bcategory))
             {
-                 blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory /*&& d.bnodeLevel == 2 */&& d.IsDeleted == false, d => d.bCreateTime, true);
+                 blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory && d.bnodeLevel <= 2 && d.IsDeleted == false, d => d.bCreateTime, true);
                 if (bcategory=="ALL")
                 {
                     blogs = await _blogArticleServices.Query(d =>d.IsDeleted == false, d => d.bCreateTime, true);
@@ -450,6 +419,8 @@ namespace Blog.Core.Controllers
             }
             return Success(blogs);
         }
+
+
 
 
         /// <summary>

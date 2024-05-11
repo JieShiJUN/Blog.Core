@@ -130,5 +130,9 @@ namespace Blog.Core.Model.Models
         [Navigate(NavigateType.OneToMany, nameof(BlogArticleDisplayImage))]
         public List<BlogArticleDisplayImage> DisplayImageData { get; set; }
 
+        [Navigate(NavigateType.OneToMany, nameof(BlogArticle))]
+        public List<BlogArticle> Child { get; set; }
     }
+
+
 }

@@ -16,7 +16,7 @@
             <param name="logger"></param>
             
         </member>
-        <member name="M:Blog.Core.Controllers.BlogController.Get(System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String)">
+        <member name="M:Blog.Core.Controllers.BlogController.Get(System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
             <summary>
             获取博客列表【无权限】
             </summary>
