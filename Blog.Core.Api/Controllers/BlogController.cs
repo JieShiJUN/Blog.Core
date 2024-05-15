@@ -374,6 +374,11 @@ namespace Blog.Core.Controllers
         public async Task<MessageModel<List<BlogArticle>>> GetSubBlog(string category,int level=0)
         {
             var res = new List<BlogArticle>();
+            if (level==2&& !string.IsNullOrEmpty(category))
+            {
+                var blogs = await _blogArticleServices.Query(d => d.bcategory == category && d.IsDeleted == false && d.bnodeLevel == level, d => d.bCreateTime, true);
+                res = await _blogArticleServices.ListNavData(blogs);
+            }
             if (!string.IsNullOrEmpty(category))
             {
                 var blogs = await _blogArticleServices.Query(d => d.bcategory == category && d.IsDeleted == false, d => d.bCreateTime, true);
