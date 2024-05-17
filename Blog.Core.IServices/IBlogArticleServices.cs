@@ -13,9 +13,9 @@ namespace Blog.Core.IServices
 
         Task<BlogArticle> GetBlogId(long id);
 
-        Task<BlogArticle> NavData(BlogArticle blogArticle);
+        Task<BlogArticle> NavData(BlogArticle blogArticle, bool img = true, bool star = false, bool child = false, bool father = false);
 
-        Task<List<BlogArticle>> ListNavData(List<BlogArticle> blogArticlelist);
+        Task<List<BlogArticle>> ListNavData(List<BlogArticle> blogArticlelist,bool img=true,bool star=false,bool child=false,bool father=false);
     }
 
 }

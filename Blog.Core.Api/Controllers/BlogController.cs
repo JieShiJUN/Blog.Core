@@ -358,7 +358,7 @@ namespace Blog.Core.Controllers
             {
 
                 var blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory && d.bstarLevel>=0 && d.IsDeleted == false, d => d.bstarLevel, false);
-                res = await _blogArticleServices.ListNavData(blogs);
+                res = await _blogArticleServices.ListNavData(blogs,father:true);
             }
             return Success(res);
         }
@@ -374,23 +374,17 @@ namespace Blog.Core.Controllers
         public async Task<MessageModel<List<BlogArticle>>> GetSubBlog(string category,int level=0)
         {
             var res = new List<BlogArticle>();
-            if (level==2&& !string.IsNullOrEmpty(category))
-            {
-                var blogs = await _blogArticleServices.Query(d => d.bcategory == category && d.IsDeleted == false && d.bnodeLevel == level, d => d.bCreateTime, true);
-                res = await _blogArticleServices.ListNavData(blogs);
-            }
             if (!string.IsNullOrEmpty(category))
             {
                 var blogs = await _blogArticleServices.Query(d => d.bcategory == category && d.IsDeleted == false, d => d.bCreateTime, true);
-                if (level!=0)
+                if (level != 0)
                 {
-                    blogs = blogs.Where(s=>s.bnodeLevel==level).ToList(); 
-                }       
-                res = await _blogArticleServices.ListNavData(blogs);
+                    blogs = blogs.Where(s => s.bnodeLevel == level).ToList();
+                }
+                res = await _blogArticleServices.ListNavData(blogs,child:true);
             }
             else
             {   
-                level = 2;
                 var blogs = await _blogArticleServices.Query(d =>d.IsDeleted == false&& d.bnodeLevel == level, d => d.bCreateTime, true);
                 res = await _blogArticleServices.ListNavData(blogs);
             }
@@ -411,11 +405,6 @@ namespace Blog.Core.Controllers
             if (!string.IsNullOrEmpty(bcategory))
             {
                  blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory && d.bnodeLevel <= 2 && d.IsDeleted == false, d => d.bCreateTime, true);
-                if (bcategory=="ALL")
-                {
-                    blogs = await _blogArticleServices.Query(d =>d.IsDeleted == false, d => d.bCreateTime, true);
-                    blogs = await _blogArticleServices.ListNavData(blogs);
-                }
             }
             else
             {

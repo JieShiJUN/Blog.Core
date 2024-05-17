@@ -20,30 +20,6 @@ namespace Blog.Core.Services
 
 
         /// <summary>
-        /// 实体模型导航属性获取值
-        /// </summary>
-        /// <param name=""></param>
-        /// <returns></returns>
-        public async Task<BlogArticle> NavData(BlogArticle blogArticle) {
-            ///父节点
-            blogArticle.Father = (await base.Query(a => a.bID == blogArticle.bparentId)).FirstOrDefault();
-
-            ///推荐列表
-            if (!string.IsNullOrEmpty(blogArticle.bstarList))
-            {
-                List<long> starListIds = blogArticle.bstarList.Split(',').Select(long.Parse).ToList();
-                blogArticle.StarList = (await base.Query(a => starListIds.Contains(a.bID)));
-            }
-                blogArticle.DisplayImageData = await _imageServices.Query(s => s.BlogArticleId == blogArticle.bID);
-
-            var Child = (await base.Query(a => a.bparentId == blogArticle.bID));
-            Child= await ListNavData(Child);
-            //子节点
-            blogArticle.Child = Child;
-            return blogArticle;
-        }
-
-        /// <summary>
         /// 获取视图博客详情信息
         /// </summary>
         /// <param name="id"></param>
@@ -56,7 +32,8 @@ namespace Blog.Core.Services
 
             if (blogArticle != null)
             {
-                blogArticle.StarList = await ListNavData(blogArticle.StarList);
+                blogArticle = await NavData(blogArticle, father: true);
+                blogArticle.StarList = await ListNavData(blogArticle.StarList, father: true);
                 models = _mapper.Map<BlogViewModels>(blogArticle);
                 blogArticle.btraffic += 1;
                 await base.Update(blogArticle, new List<string> { "btraffic" });
@@ -92,16 +69,45 @@ namespace Blog.Core.Services
 
         }
 
-        public async Task<List<BlogArticle>> ListNavData(List<BlogArticle> blogArticlelist)
+     
+
+        public async Task<List<BlogArticle>> ListNavData(List<BlogArticle> blogArticlelist, bool img = true, bool star = false, bool child = false, bool father = false)
         {
             var res = new List<BlogArticle>();
             if (blogArticlelist == null) return null;
             foreach (var blogArticle in blogArticlelist)
             {
-               var data= await NavData(blogArticle);
+                var data = await NavData(blogArticle,img,star,child,father);
                 res.Add(data);
             }
             return res;
+        }
+
+        public async Task<BlogArticle> NavData(BlogArticle blogArticle, bool img = true, bool star = false, bool childs = false, bool father = false)
+        {
+            if (img)
+            {
+                blogArticle.DisplayImageData = await _imageServices.Query(s => s.BlogArticleId == blogArticle.bID);
+            }
+            if (star)
+            {
+                if (!string.IsNullOrEmpty(blogArticle.bstarList))
+                {
+                    List<long> starListIds = blogArticle.bstarList.Split(',').Select(long.Parse).ToList();
+                    blogArticle.StarList = (await base.Query(a => starListIds.Contains(a.bID)));
+                }
+            }
+            if (childs)
+            {
+                var Child = (await base.Query(a => a.bparentId == blogArticle.bID));
+                Child = await ListNavData(Child,child:childs);
+                blogArticle.Child = Child;
+            }
+            if (father)
+            {
+                blogArticle.Father = (await base.Query(a => a.bID == blogArticle.bparentId)).FirstOrDefault();
+            }
+            return blogArticle;
         }
     }
 }
