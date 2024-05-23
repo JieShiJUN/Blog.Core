@@ -1,6 +1,9 @@
 ﻿using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using Blog.Core.Common.Caches;
+using Blog.Core.Common.Const;
 using Blog.Core.Common.Extensions;
 using Blog.Core.Common.Helper;
 using Blog.Core.IServices;
@@ -8,6 +11,7 @@ using Blog.Core.Model;
 using Blog.Core.Model.Models;
 using Blog.Core.Model.ViewModels;
 using Blog.Core.SwaggerHelper;
+using Grpc.Net.Client.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -26,24 +30,9 @@ namespace Blog.Core.Controllers
     /// </summary>
     [Produces("application/json")]
     [Route("api/Blog")]
-    public class BlogController : BaseApiController
+    public class BlogController(ICaching _caching,ILogger<BlogController> _logger, IBlogArticleDisplayImageServices _imageServices) : BaseApiController
     {
         public IBlogArticleServices _blogArticleServices { get; set; }
-        public IBlogArticleDisplayImageServices _imageServices { get; set; }
-        private readonly ILogger<BlogController> _logger;
-
-        /// <summary>
-        /// 构造函数
-        /// </summary>
-        /// <param name="logger"></param>
-        /// 
-        public BlogController(ILogger<BlogController> logger, IBlogArticleDisplayImageServices imageServices)
-        {
-            _logger = logger;
-            _imageServices = imageServices;
-        }
-        // 获取所有blog的拓展方法
-
 
         /// <summary>
         /// 获取博客列表【无权限】
@@ -203,6 +192,7 @@ namespace Blog.Core.Controllers
        /* [Authorize]*/
         public async Task<MessageModel<string>> Post([FromBody] BlogArticle blogArticle)
         {
+            _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行。
             if (blogArticle.btitle.Length > 0)
             {
                
@@ -263,6 +253,7 @@ namespace Blog.Core.Controllers
         [Authorize(Permissions.Name)]
         public async Task<MessageModel<string>> Put([FromBody] BlogArticle BlogArticle)
         {
+            _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行
             /*return Failed("更新失败");*/
             if (BlogArticle != null && BlogArticle.bID > 0)
             {
@@ -316,6 +307,7 @@ namespace Blog.Core.Controllers
         [Route("Delete")]
         public async Task<MessageModel<string>> Delete(long id)
         {
+            _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行
             if (id > 0)
             {
                 var blogArticle = await _blogArticleServices.QueryById(id);
@@ -353,12 +345,24 @@ namespace Blog.Core.Controllers
         [Route("GetMainStar")]
         public async Task<MessageModel<List<BlogArticle>>> GetMainStar(string bcategory)
         {
+            _caching.RemoveAsync(bcategory);
             var res = new List<BlogArticle>();
+            var key = CacheConst.BlogCache + MethodBase.GetCurrentMethod().Name + bcategory;
+            if (await _caching.ExistsAsync(key))
+            {
+                return Success(await _caching.GetAsync<List<BlogArticle>>(key));
+            }
+
             if (!string.IsNullOrWhiteSpace(bcategory))
             {
 
                 var blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory && d.bstarLevel>=0 && d.IsDeleted == false, d => d.bstarLevel, false);
                 res = await _blogArticleServices.ListNavData(blogs,father:true);
+            }
+
+            if (res.Count > 0)
+            {
+                await _caching.SetAsync(key, res);
             }
             return Success(res);
         }
@@ -374,6 +378,14 @@ namespace Blog.Core.Controllers
         public async Task<MessageModel<List<BlogArticle>>> GetSubBlog(string category,int level=0)
         {
             var res = new List<BlogArticle>();
+
+            var key = CacheConst.BlogCache + MethodBase.GetCurrentMethod().Name + category+ level;
+            if (await _caching.ExistsAsync(key))
+            {
+                return Success(await _caching.GetAsync<List<BlogArticle>>(key));
+            }
+
+
             if (!string.IsNullOrEmpty(category))
             {
                 var blogs = await _blogArticleServices.Query(d => d.bcategory == category && d.IsDeleted == false, d => d.bCreateTime, true);
@@ -387,6 +399,11 @@ namespace Blog.Core.Controllers
             {   
                 var blogs = await _blogArticleServices.Query(d =>d.IsDeleted == false&& d.bnodeLevel == level, d => d.bCreateTime, true);
                 res = await _blogArticleServices.ListNavData(blogs);
+            }
+
+            if (res.Count > 0)
+            {
+                await _caching.SetAsync(key, res);
             }
             return Success(res);
         }
@@ -402,6 +419,15 @@ namespace Blog.Core.Controllers
         public async Task<MessageModel<List<BlogArticle>>> GetBlogNode(string bcategory)
         {
             var blogs = new List<BlogArticle>();
+
+            var key = CacheConst.BlogCache + MethodBase.GetCurrentMethod().Name + bcategory;
+            if (await _caching.ExistsAsync(key))
+            {
+                blogs = await _caching.GetAsync<List<BlogArticle>>(key);
+                return Success(blogs);
+            }
+
+   
             if (!string.IsNullOrEmpty(bcategory))
             {
                  blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory && d.bnodeLevel <= 2 && d.IsDeleted == false, d => d.bCreateTime, true);
@@ -411,6 +437,12 @@ namespace Blog.Core.Controllers
                 blogs = await _blogArticleServices.Query(d => d.bnodeLevel == 1 && d.IsDeleted == false, d => d.bCreateTime, true);
                 blogs = await _blogArticleServices.ListNavData(blogs);
             }
+
+            if (blogs.Count > 0)
+            {
+                await _caching.SetAsync(key, blogs);
+            }
+
             return Success(blogs);
         }
 

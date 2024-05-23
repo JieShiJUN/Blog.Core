@@ -26,7 +26,8 @@ namespace Blog.Core.Services
         /// <returns></returns>
         public async Task<BlogViewModels> GetBlogDetails(long id)
         {
-            var blogArticle = (await base.Query(a => a.bID == id)).FirstOrDefault();
+            //var blogArticle = (await base.Query(a => a.bID == id)).FirstOrDefault();
+            var blogArticle = (await base.QueryById(id));
             blogArticle = await NavData(blogArticle);
             BlogViewModels models = null;
 
@@ -42,20 +43,6 @@ namespace Blog.Core.Services
 
         }
 
-        /// <summary>
-        /// 根据id导航属性赋值
-        /// </summary>
-        /// <param name="id"></param>
-        /// <returns></returns>
-        public async Task<BlogArticle> GetBlogId(long id)
-        {
-            var blogArticle = (await base.Query(a => a.bID == id)).FirstOrDefault();
-            blogArticle = await NavData(blogArticle);
-            return blogArticle;
-        }
-
-
-
 
         /// <summary>
         /// 获取博客列表
@@ -68,8 +55,7 @@ namespace Blog.Core.Services
             return bloglist;
 
         }
-
-     
+        
 
         public async Task<List<BlogArticle>> ListNavData(List<BlogArticle> blogArticlelist, bool img = true, bool star = false, bool child = false, bool father = false)
         {
@@ -105,7 +91,8 @@ namespace Blog.Core.Services
             }
             if (father)
             {
-                blogArticle.Father = (await base.Query(a => a.bID == blogArticle.bparentId)).FirstOrDefault();
+                blogArticle.Father = await base.QueryById(blogArticle.bparentId);
+                //blogArticle.Father = (await base.Query(a => a.bID == blogArticle.bparentId)).FirstOrDefault();
             }
             return blogArticle;
         }

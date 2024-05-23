@@ -9,12 +9,10 @@
             博客管理
             </summary>
         </member>
-        <member name="M:Blog.Core.Controllers.BlogController.#ctor(Microsoft.Extensions.Logging.ILogger{Blog.Core.Controllers.BlogController},Blog.Core.IServices.IBlogArticleDisplayImageServices)">
+        <member name="M:Blog.Core.Controllers.BlogController.#ctor(Blog.Core.Common.Caches.ICaching,Microsoft.Extensions.Logging.ILogger{Blog.Core.Controllers.BlogController},Blog.Core.IServices.IBlogArticleDisplayImageServices)">
             <summary>
-            构造函数
+            博客管理
             </summary>
-            <param name="logger"></param>
-            
         </member>
         <member name="M:Blog.Core.Controllers.BlogController.Get(System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
             <summary>

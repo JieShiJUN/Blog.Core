@@ -11,8 +11,6 @@ namespace Blog.Core.IServices
         Task<List<BlogArticle>> GetBlogs();
         Task<BlogViewModels> GetBlogDetails(long id);
 
-        Task<BlogArticle> GetBlogId(long id);
-
         Task<BlogArticle> NavData(BlogArticle blogArticle, bool img = true, bool star = false, bool child = false, bool father = false);
 
         Task<List<BlogArticle>> ListNavData(List<BlogArticle> blogArticlelist,bool img=true,bool star=false,bool child=false,bool father=false);

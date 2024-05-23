@@ -84,4 +84,9 @@ public class CacheConst
 	/// swagger登录缓存
 	/// </summary>
 	public const string SwaggerLogin = "swaggerLogin:";
+
+	/// <summary>
+	/// blog缓存
+	/// </summary>
+    public const string BlogCache = "blogCache:";
 }
