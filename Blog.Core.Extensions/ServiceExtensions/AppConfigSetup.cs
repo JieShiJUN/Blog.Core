@@ -85,7 +85,7 @@ namespace Blog.Core.Extensions
                     new string[] { "IP记录中间件", AppSettings.app("Middleware", "IPLog", "Enabled") },
                     new string[] { "请求响应日志中间件", AppSettings.app("Middleware", "RequestResponseLog", "Enabled") },
                     new string[] { "SingnalR实时发送请求数据中间件", AppSettings.app("Middleware", "SignalR", "Enabled") },
-                    new string[] { "IP限流中间件", AppSettings.app("Middleware", "IpRateLimit", "Enabled") },
+                    //new string[] { "IP限流中间件", AppSettings.app("Middleware", "IpRateLimit", "Enabled") },
                     new string[] { "性能分析中间件", AppSettings.app("Startup", "MiniProfiler", "Enabled") },
                     new string[] { "Consul注册服务", AppSettings.app("Middleware", "Consul", "Enabled") },
                 };

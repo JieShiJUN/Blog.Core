@@ -61,7 +61,7 @@ namespace Blog.Core.Controllers
             
             var allowedFile = dto.file.Where(c => allowType.Contains(c.ContentType));
             if (!allowedFile.Any()) return Failed("图片格式错误");
-            if (allowedFile.Sum(c => c.Length) > 1024 * 1024 * 4) return Failed("图片过大");
+            if (allowedFile.Sum(c => c.Length) > 1024 * 1024 * 6) return Failed("图片过大");
 
             string foldername = "images";
             string folderpath = Path.Combine(_env.WebRootPath, foldername);

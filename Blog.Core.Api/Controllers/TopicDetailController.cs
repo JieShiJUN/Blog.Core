@@ -59,8 +59,9 @@ namespace Blog.Core.Controllers
                 tid = ((await _topicServices.Query(ts => ts.tName == tname)).FirstOrDefault()?.Id).ObjToLong();
             }
 
+            var data = await _topicDetailServices.QueryPage(a => !a.tdIsDelete && ((tid == 0 && true) || (tid > 0 && a.TopicId == tid)) && ((a.tdName != null && a.tdName.Contains(key)) || (a.tdDetail != null && a.tdDetail.Contains(key))), page, intPageSize, " Id desc ");
 
-            var data = await _topicDetailServices.QueryPage(a => !a.tdIsDelete && a.tdSectendDetail == "tbug" && ((tid == 0 && true) || (tid > 0 && a.TopicId == tid)) && ((a.tdName != null && a.tdName.Contains(key)) || (a.tdDetail != null && a.tdDetail.Contains(key))), page, intPageSize, " Id desc ");
+            //var data = await _topicDetailServices.QueryPage(a => !a.tdIsDelete && a.tdSectendDetail == "tbug" && ((tid == 0 && true) || (tid > 0 && a.TopicId == tid)) && ((a.tdName != null && a.tdName.Contains(key)) || (a.tdDetail != null && a.tdDetail.Contains(key))), page, intPageSize, " Id desc ");
 
 
 
@@ -96,7 +97,7 @@ namespace Blog.Core.Controllers
         }
 
         /// <summary>
-        /// 添加一个 BUG 【无权限】
+        /// 添加一个咨询消息【无权限】
         /// </summary>
         /// <param name="topicDetail"></param>
         /// <returns></returns>
@@ -106,7 +107,6 @@ namespace Blog.Core.Controllers
         public async Task<MessageModel<string>> Post([FromBody] TopicDetail topicDetail)
         {
             var data = new MessageModel<string>();
-
             topicDetail.tdCreatetime = DateTime.Now;
             topicDetail.tdRead = 0;
             topicDetail.tdCommend = 0;

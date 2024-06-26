@@ -33,7 +33,7 @@ namespace Blog.Core.Services
 
             if (blogArticle != null)
             {
-                blogArticle = await NavData(blogArticle, father: true);
+                blogArticle = await NavData(blogArticle, father: true, star: true);
                 blogArticle.StarList = await ListNavData(blogArticle.StarList, father: true);
                 models = _mapper.Map<BlogViewModels>(blogArticle);
                 blogArticle.btraffic += 1;
@@ -91,7 +91,11 @@ namespace Blog.Core.Services
             }
             if (father)
             {
-                blogArticle.Father = await base.QueryById(blogArticle.bparentId);
+                if (blogArticle.bparentId!=null)
+                {
+                    blogArticle.Father = await base.QueryById(blogArticle.bparentId);
+                }
+               
                 //blogArticle.Father = (await base.Query(a => a.bID == blogArticle.bparentId)).FirstOrDefault();
             }
             return blogArticle;

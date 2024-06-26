@@ -49,8 +49,11 @@ namespace Blog.Core.Controllers
             {
                 key = "";
             }
-          
-            Expression<Func<BlogArticle, bool>> whereExpression = a => (a.bcategory.Contains(bcategory) && a.IsDeleted == false) && ((a.btitle != null && a.btitle.Contains(key)) || (a.bID != null && a.bID.ToString().Contains(key) || (a.bcontent != null && a.bcontent.Contains(key))));
+            Expression<Func<BlogArticle, bool>> whereExpression = a => ( a.IsDeleted == false && ((a.btitle != null && a.btitle.Contains(key)) || (a.bID != null && a.bID.ToString().Contains(key) || (a.bcontent != null && a.bcontent.Contains(key)))));
+            if (!string.IsNullOrEmpty(bcategory))
+            {
+                whereExpression = whereExpression.And(a=>a.bcategory.Contains(bcategory));
+            }
             if (level != -1)
             {
                 whereExpression = whereExpression.And(a => a.bnodeLevel == level);
@@ -67,7 +70,7 @@ namespace Blog.Core.Controllers
                 var list = new List<BlogArticle>();
                 foreach (var item in pageModelBlog.data)
                 {
-                        var blog =await _blogArticleServices.NavData(item);
+                        var blog =await _blogArticleServices.NavData(item,father:true);
                         list.Add(blog);
                 }
                 res.data = list;
@@ -253,8 +256,9 @@ namespace Blog.Core.Controllers
         [Authorize(Permissions.Name)]
         public async Task<MessageModel<string>> Put([FromBody] BlogArticle BlogArticle)
         {
+            //return Failed("更新失败");
             _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行
-            /*return Failed("更新失败");*/
+       
             if (BlogArticle != null && BlogArticle.bID > 0)
             {
                 var model = await _blogArticleServices.QueryById(BlogArticle.bID);
@@ -270,6 +274,7 @@ namespace Blog.Core.Controllers
                     model.bstarLevel = BlogArticle.bstarLevel;
                     model.bstarList = BlogArticle.bstarList;
                     model.bparentId = BlogArticle.bparentId;
+                    model.bRemark = BlogArticle.bRemark;
                     var images = await _imageServices.Upload(model.bID, BlogArticle.imageUrlList);
                     if (images!=null)
                     {
@@ -430,7 +435,14 @@ namespace Blog.Core.Controllers
    
             if (!string.IsNullOrEmpty(bcategory))
             {
-                 blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory && d.bnodeLevel <= 2 && d.IsDeleted == false, d => d.bCreateTime, true);
+                if (bcategory=="ALL")
+                {
+                    blogs = await _blogArticleServices.Query(d => (d.bcategory == "产品中心" || d.bcategory=="解决方案")&& d.bnodeLevel >= 3 && d.IsDeleted == false, d => d.bCreateTime, true);
+                }
+                else
+                {
+                    blogs = await _blogArticleServices.Query(d => d.bcategory == bcategory && d.bnodeLevel <= 2 && d.IsDeleted == false, d => d.bCreateTime, true);
+                }
             }
             else
             {
