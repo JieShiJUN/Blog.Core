@@ -668,7 +668,7 @@
         </member>
         <member name="M:Blog.Core.Controllers.TopicDetailController.Post(Blog.Core.Model.Models.TopicDetail)">
             <summary>
-            添加一个 BUG 【无权限】
+            添加一个咨询消息【无权限】
             </summary>
             <param name="topicDetail"></param>
             <returns></returns>
