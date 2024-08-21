@@ -87,14 +87,14 @@
         </member>
         <member name="M:Blog.Core.Controllers.BlogController.GetMainStar(System.String)">
             <summary>
-            獲取首頁推薦
+            獲取首頁推薦 缓存
             </summary>
             <param name="blogArticle"></param>
             <returns></returns>
         </member>
         <member name="M:Blog.Core.Controllers.BlogController.GetSubBlog(System.String,System.Int32)">
             <summary>
-            获取分类下的节点
+            获取分类下的节点 缓存
             </summary>
             <param name="category">传入则查询该分类、不传获取所有二级节点</param>
             <param name="level"></param>
@@ -102,7 +102,7 @@
         </member>
         <member name="M:Blog.Core.Controllers.BlogController.GetBlogNode(System.String)">
             <summary>
-            獲取所有一级节点 或者获取所有同类别的节点 或者全部节点
+            獲取所有一级节点 或者获取所有同类别的节点 或者全部节点 缓存=
             </summary>
             <param name="blogArticle"></param>
             <returns></returns>
@@ -112,6 +112,19 @@
             删除图片
             </summary>
             <param name="blogArticle"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Blog.Core.Controllers.BlogController.UpdateProductList(System.Collections.Generic.List{Blog.Core.Controllers.ProductList})">
+            <summary>
+            查看某类产品列表 创建时间排序/Blog/ProductList
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Blog.Core.Controllers.BlogController.UploadLanHu(Microsoft.AspNetCore.Http.IFormFileCollection)">
+            <summary>
+            后台上传蓝湖文件，自动保存。
+            </summary>
+            <param name="files"></param>
             <returns></returns>
         </member>
         <member name="M:Blog.Core.Controllers.DbFirstController.#ctor(SqlSugar.ISqlSugarClient,Microsoft.AspNetCore.Hosting.IWebHostEnvironment)">

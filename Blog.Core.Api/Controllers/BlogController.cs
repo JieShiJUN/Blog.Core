@@ -195,7 +195,7 @@ namespace Blog.Core.Controllers
        /* [Authorize]*/
         public async Task<MessageModel<string>> Post([FromBody] BlogArticle blogArticle)
         {
-            _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行。
+            await _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行。
             if (blogArticle.btitle.Length > 0)
             {
                
@@ -245,6 +245,7 @@ namespace Blog.Core.Controllers
             var id = (await _blogArticleServices.Add(blogArticle));
             return id > 0 ? Success<string>(id.ObjToString()) : Failed("添加失败");
         }
+
         /// <summary>
         /// 更新博客信息
         /// </summary>
@@ -257,7 +258,7 @@ namespace Blog.Core.Controllers
         public async Task<MessageModel<string>> Put([FromBody] BlogArticle BlogArticle)
         {
             //return Failed("更新失败");
-            _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行
+            await _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行
        
             if (BlogArticle != null && BlogArticle.bID > 0)
             {
@@ -312,7 +313,7 @@ namespace Blog.Core.Controllers
         [Route("Delete")]
         public async Task<MessageModel<string>> Delete(long id)
         {
-            _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行
+            await _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行
             if (id > 0)
             {
                 var blogArticle = await _blogArticleServices.QueryById(id);
@@ -334,6 +335,7 @@ namespace Blog.Core.Controllers
         [Route("ApacheTestUpdate")]
         public async Task<MessageModel<bool>> ApacheTestUpdate()
         {
+            await _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行。
             return Success(await _blogArticleServices.Update(new { bsubmitter = $"laozhang{DateTime.Now.Millisecond}", bID = 1 }), "更新成功");
         }
 
@@ -342,7 +344,7 @@ namespace Blog.Core.Controllers
         #region 新增
 
         /// <summary>
-        /// 獲取首頁推薦
+        /// 獲取首頁推薦 缓存
         /// </summary>
         /// <param name="blogArticle"></param>
         /// <returns></returns>
@@ -350,7 +352,7 @@ namespace Blog.Core.Controllers
         [Route("GetMainStar")]
         public async Task<MessageModel<List<BlogArticle>>> GetMainStar(string bcategory)
         {
-            _caching.RemoveAsync(bcategory);
+            //_caching.RemoveAsync(bcategory);
             var res = new List<BlogArticle>();
             var key = CacheConst.BlogCache + MethodBase.GetCurrentMethod().Name + bcategory;
             if (await _caching.ExistsAsync(key))
@@ -365,15 +367,15 @@ namespace Blog.Core.Controllers
                 res = await _blogArticleServices.ListNavData(blogs,father:true);
             }
 
-            if (res.Count > 0)
+            if (res.Count > 0) 
             {
-                await _caching.SetAsync(key, res);
+                await _caching.SetAsync(key, res, new TimeSpan(8, 0, 0));
             }
             return Success(res);
         }
 
         /// <summary>
-        /// 获取分类下的节点
+        /// 获取分类下的节点 缓存
         /// </summary>
         /// <param name="category">传入则查询该分类、不传获取所有二级节点</param>
         /// <param name="level"></param>
@@ -384,38 +386,55 @@ namespace Blog.Core.Controllers
         {
             var res = new List<BlogArticle>();
 
-            var key = CacheConst.BlogCache + MethodBase.GetCurrentMethod().Name + category+ level;
+            var key = CacheConst.BlogCache + MethodBase.GetCurrentMethod().Name + "category="+category+"level" + level;
             if (await _caching.ExistsAsync(key))
             {
                 return Success(await _caching.GetAsync<List<BlogArticle>>(key));
             }
 
 
-            if (!string.IsNullOrEmpty(category))
+            long result;
+            if (long.TryParse(category, out result))
             {
-                var blogs = await _blogArticleServices.Query(d => d.bcategory == category && d.IsDeleted == false, d => d.bCreateTime, true);
-                if (level != 0)
+                    var blogs = await _blogArticleServices.Query(d => d.IsDeleted == false && d.bnodeLevel == level && d.Father.bID == result, d => d.bCreateTime, true);
+                   var data = await _blogArticleServices.ListNavData(blogs,child:true);
+                foreach (var item in data)
                 {
-                    blogs = blogs.Where(s => s.bnodeLevel == level).ToList();
+                    if (item.Child != null || item.Child.Count > 0)
+                    {
+                        res.AddRange(item.Child);
+                    }
                 }
-                res = await _blogArticleServices.ListNavData(blogs,child:true);
+                res.AddRange(data);
             }
             else
-            {   
-                var blogs = await _blogArticleServices.Query(d =>d.IsDeleted == false&& d.bnodeLevel == level, d => d.bCreateTime, true);
-                res = await _blogArticleServices.ListNavData(blogs);
+            {
+                if (!string.IsNullOrEmpty(category))
+                {
+                    var blogs = await _blogArticleServices.Query(d => d.bcategory == category && d.IsDeleted == false, d => d.bCreateTime, true);
+                    if (level != 0)
+                    {
+                        blogs = blogs.Where(s => s.bnodeLevel == level).ToList();
+                    }
+                    res = await _blogArticleServices.ListNavData(blogs, child: true);
+                }
+                else
+                {
+                    var blogs = await _blogArticleServices.Query(d => d.IsDeleted == false && d.bnodeLevel == level, d => d.bCreateTime, true);
+                    res = await _blogArticleServices.ListNavData(blogs);
+                }
             }
 
             if (res.Count > 0)
             {
-                await _caching.SetAsync(key, res);
+                await _caching.SetAsync(key,res, new TimeSpan(8, 0, 0));
             }
             return Success(res);
         }
 
 
         /// <summary>
-        /// 獲取所有一级节点 或者获取所有同类别的节点 或者全部节点
+        /// 獲取所有一级节点 或者获取所有同类别的节点 或者全部节点 缓存=
         /// </summary>
         /// <param name="blogArticle"></param>
         /// <returns></returns>
@@ -425,14 +444,14 @@ namespace Blog.Core.Controllers
         {
             var blogs = new List<BlogArticle>();
 
-            var key = CacheConst.BlogCache + MethodBase.GetCurrentMethod().Name + bcategory;
+            var key = CacheConst.BlogCache + MethodBase.GetCurrentMethod().Name + "bcategory="+ bcategory;
             if (await _caching.ExistsAsync(key))
             {
                 blogs = await _caching.GetAsync<List<BlogArticle>>(key);
                 return Success(blogs);
             }
 
-   
+
             if (!string.IsNullOrEmpty(bcategory))
             {
                 if (bcategory=="ALL")
@@ -452,7 +471,7 @@ namespace Blog.Core.Controllers
 
             if (blogs.Count > 0)
             {
-                await _caching.SetAsync(key, blogs);
+                await _caching.SetAsync(key, blogs,new TimeSpan(8,0,0));
             }
 
             return Success(blogs);
@@ -470,6 +489,7 @@ namespace Blog.Core.Controllers
         [Route("DelBlogImages")]
         public async Task<bool> DelBlogImages(long id)
         {
+            await _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行。
             return await _imageServices.DelLoad(id);
         }
 
@@ -486,7 +506,153 @@ namespace Blog.Core.Controllers
 
 
 
+        /// <summary>
+        /// 查看某类产品列表 创建时间排序/Blog/ProductList
+        /// </summary>
+        /// <returns></returns>
+        [HttpPost]
+        [Route("UpdateProductList")]
+        public async Task<MessageModel<string>> UpdateProductList([FromBody] List<ProductList> products)
+        {
+            await _caching.DelByPatternAsync(CacheConst.BlogCache);//无需等待并行。
+            var timenow = DateTime.Now;
+            try
+            {
+                foreach (var item in products)
+                {
+                 var res =await _blogArticleServices.QueryById(item.ID);
+                    res.bCreateTime = timenow.AddHours(item.order);
+                   await _blogArticleServices.Update(res);
+                }
+               return Success("成功","修改成功");
+            }
+            catch (Exception ex)
+            {
+                return Failed(ex.ToString());
+                throw;
+            }
+            
+        }
 
 
+        /// <summary>
+        /// 后台上传蓝湖文件，自动保存。
+        /// </summary>
+        /// <param name="files"></param>
+        /// <returns></returns>
+
+        [HttpPost("UploadLanHu")]
+        public async Task<MessageModel<string>> UploadLanHu([FromForm] IFormFileCollection files)
+        {
+            string indexHtmlPath = null;
+            string indexCssContent = null;
+            string commonCssContent = null;
+            List<IFormFile> imageFiles = new List<IFormFile>();
+
+            // 临时目录路径
+            string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(tempDir);
+
+            foreach (var file in files)
+            {
+                var fileName = Path.GetFileName(file.FileName);
+                var filePath = Path.Combine(tempDir, fileName);
+
+                if (fileName == "index.html")
+                {
+                    indexHtmlPath = filePath;
+                    using (var stream = new FileStream(indexHtmlPath, FileMode.Create))
+                    {
+                        file.CopyTo(stream);
+                    }
+                }
+                else if (fileName == "index.css")
+                {
+                    using (var reader = new StreamReader(file.OpenReadStream()))
+                    {
+                        indexCssContent = await reader.ReadToEndAsync();
+                    }
+                }
+                else if (fileName == "common.css")
+                {
+                    using (var reader = new StreamReader(file.OpenReadStream()))
+                    {
+                        commonCssContent = await reader.ReadToEndAsync();
+                    }
+                }
+                else if (fileName.StartsWith("img/"))
+                {
+                    imageFiles.Add(file);
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        file.CopyTo(stream);
+                    }
+                }
+            }
+
+            if (indexHtmlPath == null || indexCssContent == null)
+            {
+                return Failed("文件格式错误");
+            }
+
+            // 读取index.html
+            var indexHtmlContent = await System.IO.File.ReadAllTextAsync(indexHtmlPath);
+
+            // 处理common.css，排除特定的内容
+            var filteredCommonCss = Regex.Replace(commonCssContent, @"body \*\s*\{[\s\S]*?\}\s*body\s*\{[\s\S]*?\}", "");
+
+            // 找到<head>标签插入<style>标签
+            var styleTag = $"<style>{indexCssContent}{filteredCommonCss}</style>";
+            indexHtmlContent = Regex.Replace(indexHtmlContent, @"<head>", $"<head>{styleTag}", RegexOptions.IgnoreCase);
+
+            // 更新所有图片链接，包括img标签和背景图片
+            indexHtmlContent = Regex.Replace(indexHtmlContent, @"(<img\s+[^>]*?src\s*=\s*['""]([^'""]+)['""]|background-image\s*:\s*url\s*\(['""]?([^'"")]+)['""]?\))", match =>
+            {
+                // 匹配<img>标签中的src属性
+                if (match.Groups[2].Success)
+                {
+                    var srcValue = match.Groups[2].Value;
+                    if (!srcValue.StartsWith("http"))
+                    {
+                        srcValue = "http://wx.jieshi.cc/" + srcValue.TrimStart('/');
+                    }
+                    return match.Value.Replace(match.Groups[2].Value, srcValue);
+                }
+                // 匹配background-image中的url
+                else if (match.Groups[3].Success)
+                {
+                    var urlValue = match.Groups[3].Value;
+                    if (!urlValue.StartsWith("http"))
+                    {
+                        urlValue = "http://wx.jieshi.cc/" + urlValue.TrimStart('/');
+                    }
+                    return match.Value.Replace(match.Groups[3].Value, urlValue);
+                }
+                return match.Value;
+            }, RegexOptions.IgnoreCase);
+
+            // 保存修改后的index.html
+            await System.IO.File.WriteAllTextAsync(indexHtmlPath, indexHtmlContent);
+
+            // 处理img文件夹中的图片，调用InsertPicture方法
+            foreach (var imageFile in imageFiles)
+            {
+                //后续处理
+            }
+
+            // 调用poent方法保存到数据库
+            // 注意：你需要在这里实现保存indexHtmlContent到数据库的逻辑
+
+            return Success(indexHtmlContent, "成功");
+        }
+
+
+
+    }
+
+    public class ProductList
+    {
+        public long ID { get; set; }
+        public int order { get; set; }
     }
 }

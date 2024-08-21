@@ -33,7 +33,10 @@ namespace Blog.Core.Services
 
             if (blogArticle != null)
             {
-                blogArticle = await NavData(blogArticle, father: true, star: true);
+                blogArticle = await NavData(blogArticle, father: true, star: true, childs:true);
+                if (blogArticle.bnodeLevel>=4) {
+                    blogArticle.Father = await NavData(blogArticle.Father, father: true, star: true);
+                }
                 blogArticle.StarList = await ListNavData(blogArticle.StarList, father: true);
                 models = _mapper.Map<BlogViewModels>(blogArticle);
                 blogArticle.btraffic += 1;
@@ -80,12 +83,12 @@ namespace Blog.Core.Services
                 if (!string.IsNullOrEmpty(blogArticle.bstarList))
                 {
                     List<long> starListIds = blogArticle.bstarList.Split(',').Select(long.Parse).ToList();
-                    blogArticle.StarList = (await base.Query(a => starListIds.Contains(a.bID)));
+                    blogArticle.StarList = (await base.Query(a => starListIds.Contains(a.bID), a => a.bCreateTime, true));
                 }
             }
             if (childs)
             {
-                var Child = (await base.Query(a => a.bparentId == blogArticle.bID));
+                var Child = (await base.Query(a => a.bparentId == blogArticle.bID, a => a.bCreateTime, true));
                 Child = await ListNavData(Child,child:childs);
                 blogArticle.Child = Child;
             }

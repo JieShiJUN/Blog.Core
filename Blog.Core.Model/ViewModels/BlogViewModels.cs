@@ -117,8 +117,8 @@ namespace Blog.Core.Model.ViewModels
         /// </summary>
         public string bstarList { get; set; }
 
-       
-     
+        public List<BlogArticle> Child { get; set; }
+
         public List<BlogArticleComment> Comments { get; set; }
 
 
