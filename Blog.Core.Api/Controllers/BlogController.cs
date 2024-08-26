@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using System.IO.Compression;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -11,6 +12,7 @@ using Blog.Core.Model;
 using Blog.Core.Model.Models;
 using Blog.Core.Model.ViewModels;
 using Blog.Core.SwaggerHelper;
+using Com.Ctrip.Framework.Apollo.Enums;
 using Grpc.Net.Client.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,10 +32,9 @@ namespace Blog.Core.Controllers
     /// </summary>
     [Produces("application/json")]
     [Route("api/Blog")]
-    public class BlogController(ICaching _caching,ILogger<BlogController> _logger, IBlogArticleDisplayImageServices _imageServices) : BaseApiController
+    public class BlogController(ICaching _caching,ILogger<BlogController> _logger, IBlogArticleDisplayImageServices _imageServices, IWebHostEnvironment _env) : BaseApiController
     {
         public IBlogArticleServices _blogArticleServices { get; set; }
-
         /// <summary>
         /// 获取博客列表【无权限】
         /// </summary>
@@ -542,51 +543,103 @@ namespace Blog.Core.Controllers
         /// <returns></returns>
 
         [HttpPost("UploadLanHu")]
-        public async Task<MessageModel<string>> UploadLanHu([FromForm] IFormFileCollection files)
+        public async Task<MessageModel<string>> UploadLanHu([FromForm] IFormFile file)
         {
-            string indexHtmlPath = null;
-            string indexCssContent = null;
-            string commonCssContent = null;
-            List<IFormFile> imageFiles = new List<IFormFile>();
+            if (file == null || file.Length == 0 || !file.FileName.EndsWith(".zip"))
+            {
+                return Failed("上传的文件无效或不是 zip 文件");
+            }
 
             // 临时目录路径
             string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             Directory.CreateDirectory(tempDir);
 
-            foreach (var file in files)
+            string zipFilePath = Path.Combine(tempDir, file.FileName);
+            string extractPath = Path.Combine(tempDir, Path.GetFileNameWithoutExtension(file.FileName));
+
+
+            try
             {
-                var fileName = Path.GetFileName(file.FileName);
-                var filePath = Path.Combine(tempDir, fileName);
+                // 保存上传的 zip 文件
+                using (var stream = new FileStream(zipFilePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // 解压缩文件
+                ZipFile.ExtractToDirectory(zipFilePath, extractPath);
+
+                // 处理解压后的文件
+                var result = await ProcessExtractedFiles(extractPath);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                return Failed($"文件处理失败: {ex.Message}");
+            }
+            finally
+            {
+                // 清理临时目录
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        private async Task SaveImages(List<string> imageFilesPaths)
+        {
+            string foldername = "images";
+            string folderpath = Path.Combine(_env.WebRootPath, foldername);
+            if (!Directory.Exists(folderpath))
+            {
+                Directory.CreateDirectory(folderpath);
+            }
+
+            foreach (var imageFilePath in imageFilesPaths)
+            {
+                var fileName = Path.GetFileName(imageFilePath);
+                var destFilePath = Path.Combine(folderpath, fileName);
+
+                using (var sourceStream = new FileStream(imageFilePath, FileMode.Open, FileAccess.Read))
+                using (var destinationStream = new FileStream(destFilePath, FileMode.Create))
+                {
+                    await sourceStream.CopyToAsync(destinationStream);
+                }
+            }
+        }
+
+        private async Task<MessageModel<string>> ProcessExtractedFiles(string extractPath)
+        {
+            string indexHtmlPath = null;
+            string indexCssContent = null;
+            string commonCssContent = null;
+            List<string> imageFilesPaths = new List<string>();
+            var allowType = new string[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp" };
+
+            // 遍历解压后的文件
+            var files = Directory.GetFiles(extractPath, "*", SearchOption.AllDirectories);
+            foreach (var filePath in files)
+            {
+                var fileName = Path.GetFileName(filePath);
+                var fileExtension = Path.GetExtension(filePath).ToLower();
 
                 if (fileName == "index.html")
                 {
                     indexHtmlPath = filePath;
-                    using (var stream = new FileStream(indexHtmlPath, FileMode.Create))
-                    {
-                        file.CopyTo(stream);
-                    }
                 }
                 else if (fileName == "index.css")
                 {
-                    using (var reader = new StreamReader(file.OpenReadStream()))
-                    {
-                        indexCssContent = await reader.ReadToEndAsync();
-                    }
+                    indexCssContent = await System.IO.File.ReadAllTextAsync(filePath);
                 }
                 else if (fileName == "common.css")
                 {
-                    using (var reader = new StreamReader(file.OpenReadStream()))
-                    {
-                        commonCssContent = await reader.ReadToEndAsync();
-                    }
+                    commonCssContent = await System.IO.File.ReadAllTextAsync(filePath);
                 }
-                else if (fileName.StartsWith("img/"))
+                else if (allowType.Contains(fileExtension))
                 {
-                    imageFiles.Add(file);
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        file.CopyTo(stream);
-                    }
+                    imageFilesPaths.Add(filePath);
                 }
             }
 
@@ -595,6 +648,13 @@ namespace Blog.Core.Controllers
                 return Failed("文件格式错误");
             }
 
+            // 处理文件内容
+            var result = await ProcessFiles(indexHtmlPath, indexCssContent, commonCssContent, imageFilesPaths);
+            return result;
+        }
+
+        private async Task<MessageModel<string>> ProcessFiles(string indexHtmlPath, string indexCssContent, string commonCssContent, List<string> imageFilesPaths)
+        {
             // 读取index.html
             var indexHtmlContent = await System.IO.File.ReadAllTextAsync(indexHtmlPath);
 
@@ -606,7 +666,7 @@ namespace Blog.Core.Controllers
             indexHtmlContent = Regex.Replace(indexHtmlContent, @"<head>", $"<head>{styleTag}", RegexOptions.IgnoreCase);
 
             // 更新所有图片链接，包括img标签和背景图片
-            indexHtmlContent = Regex.Replace(indexHtmlContent, @"(<img\s+[^>]*?src\s*=\s*['""]([^'""]+)['""]|background-image\s*:\s*url\s*\(['""]?([^'"")]+)['""]?\))", match =>
+            indexHtmlContent = Regex.Replace(indexHtmlContent, @"(<img\s+[^>]*?src\s*=\s*['""]([^'""]+)['""]|background\s*:\s*url\s*\(['""]?([^'"")]+)['""]?\))", match =>
             {
                 // 匹配<img>标签中的src属性
                 if (match.Groups[2].Success)
@@ -614,7 +674,8 @@ namespace Blog.Core.Controllers
                     var srcValue = match.Groups[2].Value;
                     if (!srcValue.StartsWith("http"))
                     {
-                        srcValue = "http://wx.jieshi.cc/" + srcValue.TrimStart('/');
+                        srcValue = "http://mingkuoapi.jieshi.cc/" + srcValue.TrimStart('/');
+                        srcValue = srcValue.Replace("./img/", "images/");
                     }
                     return match.Value.Replace(match.Groups[2].Value, srcValue);
                 }
@@ -624,7 +685,9 @@ namespace Blog.Core.Controllers
                     var urlValue = match.Groups[3].Value;
                     if (!urlValue.StartsWith("http"))
                     {
-                        urlValue = "http://wx.jieshi.cc/" + urlValue.TrimStart('/');
+                        urlValue = "http://mingkuoapi.jieshi.cc/" + urlValue.TrimStart('/');
+                        urlValue = urlValue.Replace("./img/", "images/");
+
                     }
                     return match.Value.Replace(match.Groups[3].Value, urlValue);
                 }
@@ -634,19 +697,16 @@ namespace Blog.Core.Controllers
             // 保存修改后的index.html
             await System.IO.File.WriteAllTextAsync(indexHtmlPath, indexHtmlContent);
 
-            // 处理img文件夹中的图片，调用InsertPicture方法
-            foreach (var imageFile in imageFiles)
-            {
-                //后续处理
-            }
+            await SaveImages(imageFilesPaths);
 
-            // 调用poent方法保存到数据库
+
+            // 调用保存到数据库的逻辑
             // 注意：你需要在这里实现保存indexHtmlContent到数据库的逻辑
 
             return Success(indexHtmlContent, "成功");
         }
 
-
+       
 
     }
 

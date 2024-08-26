@@ -352,7 +352,7 @@ namespace Blog.Core.Common.Seed
             {
                 throw new Exception(
                     $"1、若是Mysql,查看常见问题:https://github.com/anjoy8/Blog.Core/issues/148#issue-776281770 \n" +
-                    $"2、若是Oracle,查看常见问题:https://github.com/anjoy8/Blog.Core/issues/148#issuecomment-752340231 \n" +
+                    $"2、若是Oracle,查看常见问题:https://github.com/anjoy8/Blog.Core/issues/148#issuecomment-752340 231 \n" +
                     "3、其他错误：" + ex.Message);
             }
         }

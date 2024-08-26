@@ -9,7 +9,7 @@
             博客管理
             </summary>
         </member>
-        <member name="M:Blog.Core.Controllers.BlogController.#ctor(Blog.Core.Common.Caches.ICaching,Microsoft.Extensions.Logging.ILogger{Blog.Core.Controllers.BlogController},Blog.Core.IServices.IBlogArticleDisplayImageServices)">
+        <member name="M:Blog.Core.Controllers.BlogController.#ctor(Blog.Core.Common.Caches.ICaching,Microsoft.Extensions.Logging.ILogger{Blog.Core.Controllers.BlogController},Blog.Core.IServices.IBlogArticleDisplayImageServices,Microsoft.AspNetCore.Hosting.IWebHostEnvironment)">
             <summary>
             博客管理
             </summary>
@@ -120,7 +120,7 @@
             </summary>
             <returns></returns>
         </member>
-        <member name="M:Blog.Core.Controllers.BlogController.UploadLanHu(Microsoft.AspNetCore.Http.IFormFileCollection)">
+        <member name="M:Blog.Core.Controllers.BlogController.UploadLanHu(Microsoft.AspNetCore.Http.IFormFile)">
             <summary>
             后台上传蓝湖文件，自动保存。
             </summary>
