@@ -136,10 +136,23 @@ namespace Blog.Core.Controllers
         [Route("GetBlogHomeMain")]
         public async Task<MessageModel<List<BlogArticleDisplayImage>>> GetBlogHomeMain()
         {
-            var blogs = await _blogArticleServices.Query(d => d.btitle == "展示图" && d.IsDeleted == false, d => d.bID, false);
+            var blogs = await _blogArticleServices.Query(d => d.btitle.Contains("图") && d.IsDeleted == false, d => d.bID, false);
             if (blogs.Count>0)
             {
               var res =  await _blogArticleServices.NavData(blogs[0]);
+                if (res.bRemark!=null)
+                {
+                    var links = res.bRemark.Split(",");
+                    //8/27新增功能：首页图片点击跳转相应链接。将超链接数组字符串载入Description让UI渲染links = res_bRemark.split('')
+                    //该字段暂被该功能暂用，但与原字段作用不完全相符，故不做持久化。
+                    int i = 0;
+                    foreach (var item in res.DisplayImageData)
+                    {
+                        item.Description = links[i];
+                        i++;
+                    }
+                }
+
                 return Success(res.DisplayImageData);
             }
                 return null;
